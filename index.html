@@ -155,10 +155,13 @@ function parse(txt){
 function guess(memo){
   const S = ST.state || {}, lr = (S.learn || {})[lKey(memo)]; if(lr) return lr.split(':')[1];
   const mine = (ST.learn || {})[lKey(memo)]; if(mine) return mine;
-  for(const [c, src] of (S.kw || [])){ try{ if(new RegExp(src, 'i').test(memo)) return c; }catch(e){} }
+  for(const [c, src] of ((S.kw && S.kw.length) ? S.kw : DEF_KW)){ try{ if(new RegExp(src, 'i').test(memo)) return c; }catch(e){} }
   return null;
 }
-const cats = () => ((ST.state && ST.state.cats) || [{id:'unc', n:'미분류', e:'❔'}]);
+// PC에서 예산을 아직 못 받았을 때 쓰는 기본 카테고리와 자동 분류 낱말 (PC 도구의 기본값과 같음)
+const DEF_CATS = [{id:'loan',n:'대출',e:'🏦'},{id:'car',n:'교통·자동차',e:'🚗'},{id:'fin',n:'보험·세금·기타금융',e:'🧾'},{id:'house',n:'주거',e:'🏠'},{id:'tel',n:'통신',e:'📱'},{id:'health',n:'의료·건강·피트니스',e:'💪'},{id:'food',n:'식비',e:'🍚'},{id:'gift',n:'선물',e:'🎁'},{id:'store',n:'편의점·잡화',e:'🏪'},{id:'beauty',n:'미용',e:'💇'},{id:'trip',n:'여행·숙박',e:'✈️'},{id:'hobby',n:'취미·여가',e:'🎮'},{id:'life',n:'생활',e:'🧺'},{id:'cafe',n:'카페·간식',e:'☕'},{id:'sub',n:'구독비용',e:'🔁'},{id:'meet',n:'모임',e:'🍻'},{id:'event',n:'경조사',e:'💐'},{id:'edu',n:'교육',e:'📚'},{id:'transfer',n:'이체',e:'🔀'},{id:'card',n:'카드대금',e:'💳'},{id:'unc',n:'미분류',e:'❔'}];
+const DEF_KW = [['food','점심|저녁|아침|밥|식당|배달|치킨|피자|국밥|김밥|분식|회식|맥주|술|고기|반찬|식비'],['cafe','커피|카페|스타벅스|스벅|투썸|메가|빽다방|간식|빵|디저트'],['car','주유|기름|톨비|하이패스|주차|택시|버스|지하철|교통|세차|정비'],['store','편의점|마트|다이소|쿠팡|장보기|이마트|홈플러스|gs25|cu'],['health','병원|약국|약값|치과|헬스|피트니스|마운자로|영양제'],['sub','넷플릭스|유튜브|구독|멤버십|클로드|캡컷'],['beauty','미용|커트|머리|펌|염색|보톡스|화장품'],['gift','선물'],['meet','모임|동기|동창'],['event','경조사|축의금|부의금|조의금|결혼식|돌잔치'],['edu','책|강의|교육|수강|학원'],['hobby','게임|피시방|pc방|영화|메이플|취미'],['trip','여행|숙박|호텔|항공|기차|ktx'],['house','관리비|전기|가스|수도|월세'],['tel','통신|휴대폰|핸드폰|인터넷'],['fin','보험|세금|재산세|자동차세|수수료'],['loan','대출|이자'],['life','생활|세탁|청소|빨래|이발']];
+const cats = () => ((ST.state && ST.state.cats && ST.state.cats.length) ? ST.state.cats : DEF_CATS);
 const catOf = id => cats().find(c=>c.id===id) || {id:'unc', n:'미분류', e:'❔'};
 
 // ---------- 화면 ----------
@@ -208,7 +211,7 @@ function render(){
       return `<div class="cat"><div class="t"><span>${c.e||''} ${esc(c.n)}</span><span style="${left<0?'color:var(--warn)':''}">${c.b ? won(left)+' 남음' : won(used)+' 씀'}</span></div><div class="bar"><i style="width:${pct}%;${left<0?'background:var(--warn)':''}"></i></div></div>`; }).join('') : '';
   app.innerHTML = `
     ${lastErr ? `<div class="note ${/못 했|못했/.test(lastErr)?'err':''}">${esc(lastErr)}</div>` : ''}
-    ${!C.cur ? '<div class="note">PC에서 자산관리 도구를 한 번 열면 이번 달 예산이 올라와서 "오늘 쓸 수 있는 돈"이 보여요. 입력은 지금도 할 수 있어요.</div>' : ''}
+    ${!C.cur ? '<div class="note"><b>남은 예산이 아직 안 보여요.</b> PC의 자산관리 도구를 새로 고침하고, 가져오기·백업 탭의 "📱 핸드폰 입력 연결"에서 이 이메일로 한 번 로그인해 주세요. 그러면 예산이 올라와서 "오늘 쓸 수 있는 돈"과 카테고리별 남은 예산이 보여요. 입력은 지금도 할 수 있어요.</div>' : ''}
     <div class="top">${top}</div>
     <div class="card"><div class="row"><input class="inp" id="q" inputmode="text" enterkeyhint="done" autocomplete="off" placeholder="점심 12000" value="${esc(keepTxt)}"><button class="btn" id="add">저장</button></div>
       <div class="hint" id="hint">${p ? `${p.date ? dl(p.date)+' · ' : ''}${esc(p.memo)||'메모 없음'} · <b>${won(p.amt)}</b>` : '예: 점심 12000 · 어제 커피 4500 · 10/3 주유 6만'}</div>
