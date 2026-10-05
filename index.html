@@ -45,6 +45,19 @@ button,input{font:inherit;color:inherit}
 .it .a{font-weight:800;white-space:nowrap}
 .it .x{border:none;background:none;color:var(--faint);font-size:20px;padding:4px 2px 4px 8px}
 .pend{color:var(--faint)}
+.hh{display:flex;align-items:center;gap:6px;padding:10px 0 4px}
+.hh b{font-size:16px;min-width:44px;text-align:center}
+.hh .nv{border:none;background:var(--bg);border-radius:10px;width:32px;height:32px;font-size:16px;color:var(--sub)}
+.hh .nv:disabled{opacity:.3}
+.hh .sum{font-size:12px;color:var(--sub);margin-left:4px;flex:1}
+.hh .chip{padding:6px 11px;font-size:12px}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:8px}
+.calh{font-size:11px;color:var(--sub);text-align:center;font-weight:700;padding:2px 0}
+.cd{min-height:48px;border-radius:10px;background:var(--bg);padding:5px 2px;text-align:center;font-size:12px;font-weight:700}
+.cd small{display:block;font-size:10.5px;font-weight:700;color:var(--warn);margin-top:3px;letter-spacing:-.3px}
+.cd small.in{color:var(--accent)}
+.cd.today{box-shadow:inset 0 0 0 2px var(--accent)}
+.cd.sel{background:var(--text);color:#fff}.cd.sel small{color:#FFC9CE}
 .bar{height:6px;background:var(--bg);border-radius:4px;overflow:hidden;margin-top:6px}
 .bar i{display:block;height:100%;background:var(--accent)}
 .cat{padding:10px 0;border-bottom:1px solid var(--line)}
@@ -104,7 +117,8 @@ function demo(path, method, body){
   ST.demo ||= []; const d = new Date(), mk = dstr(d).slice(0,7);
   if(path.startsWith('/rest/v1/budget_state')) return [{data:{month:mk, day:today(), tot:1500000, used:620000, freeAvail:540000, todaySpent:0,
     cats:[{id:'food',n:'식비',e:'🍚',b:400000,s:210000},{id:'cafe',n:'카페·간식',e:'☕',b:80000,s:52000},{id:'car',n:'교통·자동차',e:'🚗',b:200000,s:120000},{id:'store',n:'편의점·마트·잡화',e:'🛒',b:150000,s:90000},{id:'unc',n:'미분류',e:'❔',b:0,s:0}],
-    learn:{}, kw:[['food','점심|저녁|밥|김밥'],['cafe','커피|카페'],['car','주유|택시']]}}];
+    learn:{}, kw:[['food','점심|저녁|밥|김밥'],['cafe','커피|카페'],['car','주유|택시']],
+    tx:[{i:'x1',d:mk+'-01',a:52000,m:'장보기',c:'store',p:'카드',t:0,ph:0,fx:0},{i:'x2',d:mk+'-02',a:8900,m:'점심',c:'food',p:'카드',t:0,ph:0,fx:0},{i:'x3',d:mk+'-02',a:300000,m:'용돈',c:'side',p:'이체',t:1,ph:0,fx:0}]}}];
   if(path.startsWith('/rest/v1/expenses')){
     if(method==='GET') return ST.demo.filter(r=>!r.deleted);
     if(method==='POST'){ if(!ST.demo.some(r=>r.id===body.id)) ST.demo.push({...body, created_at:new Date().toISOString(), imported_at:null, deleted:false}); keep(); return null; }
@@ -164,6 +178,14 @@ const DEF_KW = [['food','점심|저녁|아침|밥|식당|배달|치킨|피자|�
 const cats = () => ((ST.state && ST.state.cats && ST.state.cats.length) ? ST.state.cats : DEF_CATS);
 const catOf = id => cats().find(c=>c.id===id) || {id:'unc', n:'미분류', e:'❔'};
 
+// ---------- 내역 (PC 도구의 건별 내역 + 아직 안 넘어간 핸드폰 입력) ----------
+function hist(){
+  const pc = (ST.state && ST.state.tx) || [], ids = new Set(pc.map(x=>x.i));
+  return [...pc.map(x=>({id:x.i, date:x.d, amount:x.a, memo:x.m, cat:x.c, pay:x.p, inc:!!x.t, lock:true, ph:!!x.ph, fx:!!x.fx})),
+          ...ST.rows.filter(r=>!ids.has(r.id)).map(r=>({...r, lock:!!r.imported_at, ph:true}))];
+}
+const shortAmt = v => v>=10000 ? (v/10000).toFixed(v>=100000?0:1).replace(/\.0$/,'')+'만' : v>=1000 ? Math.round(v/1000)+'천' : String(v);
+let view = ST.view || 'list', vm = null, vday = null;      // 목록/달력, 보고 있는 달, 달력에서 고른 날
 // ---------- 화면 ----------
 let sel = null, edit = null;      // sel: 손으로 고른 카테고리, edit: 카테고리를 바꾸는 중인 내역
 function calc(){
@@ -196,17 +218,29 @@ function render(){
   const p = keepTxt ? parse(keepTxt) : null, g = sel || (p && p.cat) || null;
   const top = C.cur
     ? `<div class="card hl"><div class="lb">오늘 쓸 수 있는 돈</div><div class="v">${won(C.todayLeft)}</div><div class="s">${C.freeAvail>0 ? (C.todaySpent ? `오늘 ${won(C.todaySpent)} 썼어요 · ` : '') + `하루 한도 ${won(C.perDay)}` : '이번 달 자유 지출 예산을 다 썼어요'}</div></div>
-       <div class="card"><div class="lb">이번 달 남은 예산</div><div class="v" style="${C.monthLeft<0?'color:var(--warn)':''}">${won(C.monthLeft)}</div><div class="s">총 예산 ${won(C.tot)} · 남은 ${C.remain}일</div></div>`
+       <div class="card"><div class="lb">이번 달 남은 예산</div><div class="v" style="${C.monthLeft<0?'color:var(--warn)':''}">${won(C.monthLeft)}</div><div class="s">쓴 돈 ${won(C.tot - C.monthLeft)} · 예산 ${won(C.tot)}</div></div>`
     : `<div class="card hl"><div class="lb">오늘 입력한 지출</div><div class="v">${won(C.todayMine)}</div><div class="s">예산은 아직 못 받았어요</div></div>
        <div class="card"><div class="lb">이번 달 입력한 지출</div><div class="v">${won(C.monthMine)}</div><div class="s">핸드폰으로 넣은 것만</div></div>`;
   const chip = (c, cls) => `<button class="chip ${cls}" data-cat="${c.id}">${c.e||''} ${esc(c.n)}</button>`;
-  const groups = {}; ST.rows.forEach(r => (groups[r.date] ||= []).push(r));
   const dl = d => d===t ? '오늘' : d===dstr(new Date(Date.now()-864e5)) ? '어제' : (+d.slice(5,7)) + '월 ' + (+d.slice(8)) + '일';
-  const list = Object.keys(groups).sort().reverse().slice(0, 21).map(d => `<div class="day"><span>${dl(d)}</span><span>${won(groups[d].reduce((s,r)=>s+r.amount,0))}</span></div>` +
-    groups[d].map(r => { const c = catOf(r.cat), lock = !!r.imported_at;
-      return `<div class="it"><div class="e">${c.e||'❔'}</div><div class="m"><b class="${r._p?'pend':''}">${esc(r.memo) || esc(c.n)}</b><span ${lock?'':`data-ed="${r.id}"`} style="${lock?'':'text-decoration:underline dotted'}">${esc(c.n)} · ${esc(r.pay||'')}${r._p?' · 보내는 중':lock?' · PC로 옮김':''}</span>
+  const H = hist(), months = [...new Set([t.slice(0,7), ...H.map(x=>x.date.slice(0,7))])].sort(); if(!vm || !months.includes(vm)) vm = t.slice(0,7);
+  const HM = H.filter(x=>x.date.startsWith(vm)), expT = HM.filter(x=>!x.inc).reduce((a,x)=>a+x.amount,0), mi = months.indexOf(vm);
+  const groups = {}; HM.forEach(r => (groups[r.date] ||= []).push(r));
+  const item = r => { const c = r.inc ? {e:'💰', n:'수입'} : catOf(r.cat), lock = r.lock;
+      return `<div class="it"><div class="e">${c.e||'❔'}</div><div class="m"><b class="${r._p?'pend':''}">${esc(r.memo) || esc(c.n)}</b><span ${lock?'':`data-ed="${r.id}"`} style="${lock?'':'text-decoration:underline dotted'}">${esc(c.n)}${r.pay?' · '+esc(r.pay):''}${r.fx?' · 고정지출':''}${r._p?' · 보내는 중':r.ph?' · 📱':''}</span>
         ${edit===r.id ? `<div class="chips">${cats().map(x=>`<button class="chip ${x.id===r.cat?'on':''}" data-setcat="${r.id}|${x.id}">${x.e||''} ${esc(x.n)}</button>`).join('')}</div>` : ''}</div>
-        <div class="a">-${Math.abs(r.amount).toLocaleString('ko-KR')}</div>${lock ? '<span class="x" style="font-size:13px">🔒</span>' : `<button class="x" data-del="${r.id}" aria-label="지우기">×</button>`}</div>`; }).join('')).join('');
+        <div class="a" style="${r.inc?'color:var(--accent)':''}">${r.inc?'+':'-'}${Math.abs(r.amount).toLocaleString('ko-KR')}</div>${lock ? '' : `<button class="x" data-del="${r.id}" aria-label="지우기">×</button>`}</div>`; };
+  const dayBlock = d => groups[d] ? `<div class="day"><span>${dl(d)}</span><span>${won(groups[d].filter(r=>!r.inc).reduce((a,r)=>a+r.amount,0))}</span></div>` + groups[d].map(item).join('') : '';
+  const calHtml = () => { const y=+vm.slice(0,4), mo=+vm.slice(5), days=new Date(y,mo,0).getDate(), first=new Date(y,mo-1,1).getDay();
+    let h = '<div class="cal">' + ['일','월','화','수','목','금','토'].map((d,i)=>`<div class="calh" style="${i===0?'color:var(--warn)':i===6?'color:var(--accent)':''}">${d}</div>`).join('') + '<div></div>'.repeat(first);
+    for(let d=1; d<=days; d++){ const dt=vm+'-'+pad(d), g=groups[dt]||[], e=g.filter(r=>!r.inc).reduce((a,r)=>a+r.amount,0), inc=g.filter(r=>r.inc).reduce((a,r)=>a+r.amount,0);
+      h += `<div class="cd ${dt===t?'today':''} ${dt===vday?'sel':''}" data-day="${dt}">${d}${e?`<small>${shortAmt(e)}</small>`:''}${inc?`<small class="in">+${shortAmt(inc)}</small>`:''}</div>`; }
+    return h + '</div>'; };
+  const empty = '<div class="s" style="padding:18px 0;text-align:center;font-size:13px">내역이 없어요</div>';
+  const list = `<div class="hh"><button class="nv" data-vm="-1" ${mi<=0?'disabled':''}>‹</button><b>${+vm.slice(5)}월</b><button class="nv" data-vm="1" ${mi>=months.length-1?'disabled':''}>›</button>
+      <span class="sum">지출 ${won(expT)}</span><button class="chip ${view==='list'?'on':''}" data-view="list">목록</button><button class="chip ${view==='cal'?'on':''}" data-view="cal">달력</button></div>` +
+    (view==='cal' ? calHtml() + (vday && vday.startsWith(vm) ? (dayBlock(vday) || `<div class="day"><span>${dl(vday)}</span><span></span></div>${empty}`) : '<div class="s" style="padding:12px 0 4px;text-align:center">날짜를 누르면 그날 내역이 나와요</div>')
+      : (Object.keys(groups).sort().reverse().map(dayBlock).join('') || empty));
   const catRows = C.cur ? (ST.state.cats||[]).filter(c=>c.b || c.s || C.byCat[c.id]).map(c => { const used=c.s+(C.byCat[c.id]||0), left=c.b-used, pct=c.b?Math.min(100,used/c.b*100):100;
       return `<div class="cat"><div class="t"><span>${c.e||''} ${esc(c.n)}</span><span style="${left<0?'color:var(--warn)':''}">${c.b ? won(left)+' 남음' : won(used)+' 씀'}</span></div><div class="bar"><i style="width:${pct}%;${left<0?'background:var(--warn)':''}"></i></div></div>`; }).join('') : '';
   app.innerHTML = `
@@ -217,7 +251,7 @@ function render(){
       <div class="hint" id="hint">${p ? `${p.date ? dl(p.date)+' · ' : ''}${esc(p.memo)||'메모 없음'} · <b>${won(p.amt)}</b>` : '예: 점심 12000 · 어제 커피 4500 · 10/3 주유 6만'}</div>
       <div class="chips" id="catChips">${cats().map(c=>chip(c, sel===c.id ? 'on' : (!sel && g===c.id ? 'guess' : ''))).join('')}</div>
       <div class="chips" style="padding-top:6px">${['카드','현금','이체'].map(x=>`<button class="chip ${((p&&p.pay)||ST.pay)===x?'on':''}" data-pay="${x}">${x}</button>`).join('')}</div></div>
-    <div class="card" style="padding-top:6px">${list || '<div class="s" style="padding:18px 0;text-align:center;font-size:13px">아직 입력한 지출이 없어요</div>'}</div>
+    <div class="card" style="padding-top:6px">${list}</div>
     ${catRows ? `<div class="card"><details ${ST.open?'open':''} id="catD"><summary><span>카테고리별 남은 예산</span><span class="s">눌러서 펴기</span></summary><div style="margin-top:8px">${catRows}</div></details></div>` : ''}
     <div class="foot"><span>${DEMO ? '시험 화면' : esc(ST.sess.email||'')}${ST.stateAt ? ' · 예산 기준 ' + new Date(ST.stateAt).toLocaleDateString('ko-KR',{month:'numeric',day:'numeric'}) : ''}</span><span><button id="reload">새로 고침</button> ${DEMO?'':'<button id="out">로그아웃</button>'}</span></div>`;
   const q = $('q'); if(hadFocus){ q.focus(); q.setSelectionRange(q.value.length, q.value.length); }
@@ -238,6 +272,10 @@ function add(){
   toast(`${catOf(cat).e||''} ${catOf(cat).n} ${won(row.amount)} 저장했어요`); flush();
 }
 document.addEventListener('click', async e => {
+  const nv = e.target.closest('[data-vm]'), vw = e.target.closest('[data-view]'), dy = e.target.closest('[data-day]');
+  if(nv && !nv.disabled){ const d = new Date(+vm.slice(0,4), +vm.slice(5)-1 + (+nv.dataset.vm), 1); vm = dstr(d).slice(0,7); vday = null; return render(); }
+  if(vw){ view = ST.view = vw.dataset.view; if(view==='cal' && !vday) vday = today(); keep(); return render(); }
+  if(dy){ vday = vday===dy.dataset.day ? null : dy.dataset.day; return render(); }
   const c = e.target.closest('[data-cat]'), py = e.target.closest('[data-pay]'), del = e.target.closest('[data-del]'), ed = e.target.closest('[data-ed]'), sc = e.target.closest('[data-setcat]');
   if(c){ sel = sel===c.dataset.cat ? null : c.dataset.cat; render(); $('q').focus(); }
   else if(py){ ST.pay = py.dataset.pay; keep(); render(); }
