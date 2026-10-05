@@ -1,0 +1,14 @@
+{
+  "name": "지출 입력",
+  "short_name": "지출 입력",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F2F4F6",
+  "theme_color": "#F2F4F6",
+  "lang": "ko",
+  "icons": [
+    {"src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"},
+    {"src": "icon.png", "sizes": "256x256", "type": "image/png", "purpose": "any"}
+  ]
+}

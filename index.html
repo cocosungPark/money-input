@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
+<meta name="theme-color" content="#F2F4F6">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="지출 입력">
+<title>지출 입력</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.png">
+<style>
+:root{--bg:#F2F4F6;--card:#fff;--text:#191F28;--sub:#6B7684;--faint:#B0B8C1;--line:#E5E8EB;--accent:#3182F6;--soft:#E8F3FF;--warn:#F04452;--ok:#12B886}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Pretendard","Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:15px}
+body{padding:calc(env(safe-area-inset-top) + 12px) 14px calc(env(safe-area-inset-bottom) + 28px);max-width:520px;margin:0 auto}
+button,input{font:inherit;color:inherit}
+.card{background:var(--card);border-radius:18px;padding:16px;margin-bottom:12px}
+.top{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.top .card{margin:0;padding:14px 16px}
+.lb{font-size:12px;color:var(--sub);font-weight:600}
+.v{font-size:22px;font-weight:800;margin-top:4px;letter-spacing:-.3px}
+.s{font-size:11.5px;color:var(--sub);margin-top:3px;line-height:1.45}
+.hl{background:var(--accent);color:#fff}.hl .lb,.hl .s{color:rgba(255,255,255,.85)}
+.row{display:flex;gap:8px}
+.inp{flex:1;min-width:0;border:1.5px solid var(--line);border-radius:14px;padding:14px;font-size:17px;background:#fff;outline:none}
+.inp:focus{border-color:var(--accent)}
+.btn{border:none;background:var(--accent);color:#fff;font-weight:800;border-radius:14px;padding:0 20px;font-size:16px}
+.btn:disabled{opacity:.4}
+.btn.ghost{background:var(--bg);color:var(--text)}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:10px 0 2px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1.5px solid var(--line);background:#fff;border-radius:20px;padding:7px 12px;font-size:13px;font-weight:700;color:var(--sub);white-space:nowrap}
+.chip.on{background:var(--text);border-color:var(--text);color:#fff}
+.chip.guess{border-color:var(--accent);color:var(--accent)}
+.hint{font-size:12px;color:var(--sub);margin-top:8px;min-height:17px}
+.day{font-size:12px;font-weight:800;color:var(--sub);margin:14px 2px 6px;display:flex;justify-content:space-between}
+.it{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--line)}
+.it:last-child{border-bottom:none}
+.it .e{font-size:20px;width:26px;text-align:center}
+.it .m{flex:1;min-width:0}
+.it .m b{display:block;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.it .m span{font-size:12px;color:var(--sub)}
+.it .a{font-weight:800;white-space:nowrap}
+.it .x{border:none;background:none;color:var(--faint);font-size:20px;padding:4px 2px 4px 8px}
+.pend{color:var(--faint)}
+.bar{height:6px;background:var(--bg);border-radius:4px;overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;background:var(--accent)}
+.cat{padding:10px 0;border-bottom:1px solid var(--line)}
+.cat:last-child{border-bottom:none}
+.cat .t{display:flex;justify-content:space-between;font-size:14px;font-weight:700}
+details summary{list-style:none;font-weight:800;display:flex;justify-content:space-between;align-items:center}
+details summary::-webkit-details-marker{display:none}
+.note{background:#FFF4E5;color:#8A5A00;border-radius:12px;padding:10px 12px;font-size:12.5px;line-height:1.55;margin-bottom:12px}
+.err{background:#FFEEF0;color:#C92A2A}
+.foot{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--sub);padding:4px 4px 0}
+.foot button{border:none;background:none;color:var(--sub);text-decoration:underline;font-size:12px}
+.toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 20px);transform:translateX(-50%);background:#191F28;color:#fff;border-radius:12px;padding:11px 16px;font-size:13.5px;font-weight:600;opacity:0;transition:opacity .2s;pointer-events:none;max-width:86%;text-align:center;z-index:9}
+.toast.on{opacity:1}
+h1{font-size:22px;margin:26px 4px 6px}
+.login .inp{width:100%;margin-bottom:10px;flex:none}
+.login .btn{width:100%;padding:14px;margin-bottom:8px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+<script src="config.js"></script>
+<script>
+// 지출 입력 (핸드폰용). 입력한 지출만 서버에 올리고, PC의 자산관리 도구가 가져가요.
+const CFG = window.SB || {}, DEMO = /[?&]demo/.test(location.search), LS = 'moneyInput.v1';
+let ST = {}; try{ ST = JSON.parse(localStorage.getItem(LS) || '{}'); }catch(e){}
+ST.q ||= []; ST.rows ||= []; ST.pay ||= '카드';
+const keep = () => { try{ localStorage.setItem(LS, JSON.stringify(ST)); }catch(e){} };
+const $ = id => document.getElementById(id), pad = n => String(n).padStart(2,'0');
+const won = n => (n<0?'-':'') + Math.abs(Math.round(n)).toLocaleString('ko-KR') + '원';
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const dstr = d => d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
+const today = () => dstr(new Date());
+const uuid = () => crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random()*16|0; return (c==='x'?r:(r&3|8)).toString(16); });
+let tT; function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('on'); clearTimeout(tT); tT=setTimeout(()=>t.classList.remove('on'), 2400); }
+
+// ---------- 서버 ----------
+function setSess(r){ ST.sess = {at:r.access_token, rt:r.refresh_token, exp:Math.floor(Date.now()/1000)+(r.expires_in||3600), uid:r.user&&r.user.id, email:r.user&&r.user.email}; keep(); }
+async function raw(path, {method='GET', body, headers={}, auth=true}={}){
+  if(DEMO) return demo(path, method, body);
+  const h = {apikey:CFG.key, 'Content-Type':'application/json', ...headers};
+  if(auth && ST.sess) h.Authorization = 'Bearer ' + ST.sess.at;
+  const r = await fetch(CFG.url + path, {method, headers:h, body: body ? JSON.stringify(body) : undefined});
+  const t = await r.text(); let j = null; try{ j = t ? JSON.parse(t) : null; }catch(e){}
+  if(!r.ok) throw {status:r.status, msg:(j && (j.msg || j.message || j.error_description || j.error)) || ('오류 ' + r.status)};
+  return j;
+}
+async function api(path, o={}){
+  if(!DEMO && ST.sess && ST.sess.exp - 90 < Date.now()/1000){
+    try{ setSess(await raw('/auth/v1/token?grant_type=refresh_token', {method:'POST', body:{refresh_token:ST.sess.rt}, auth:false})); }
+    catch(e){ if(e.status===400 || e.status===401){ ST.sess=null; keep(); render(); } throw e; }
+  }
+  return raw(path, o);
+}
+// 시험용 (주소 끝에 ?demo): 서버 없이 화면만 확인
+function demo(path, method, body){
+  ST.demo ||= []; const d = new Date(), mk = dstr(d).slice(0,7);
+  if(path.startsWith('/rest/v1/budget_state')) return [{data:{month:mk, day:today(), tot:1500000, used:620000, freeAvail:540000, todaySpent:0,
+    cats:[{id:'food',n:'식비',e:'🍚',b:400000,s:210000},{id:'cafe',n:'카페·간식',e:'☕',b:80000,s:52000},{id:'car',n:'교통·자동차',e:'🚗',b:200000,s:120000},{id:'store',n:'편의점·마트·잡화',e:'🛒',b:150000,s:90000},{id:'unc',n:'미분류',e:'❔',b:0,s:0}],
+    learn:{}, kw:[['food','점심|저녁|밥|김밥'],['cafe','커피|카페'],['car','주유|택시']]}}];
+  if(path.startsWith('/rest/v1/expenses')){
+    if(method==='GET') return ST.demo.filter(r=>!r.deleted);
+    if(method==='POST'){ if(!ST.demo.some(r=>r.id===body.id)) ST.demo.push({...body, created_at:new Date().toISOString(), imported_at:null, deleted:false}); keep(); return null; }
+    if(method==='PATCH'){ const id=(path.match(/id=eq\.([\w-]+)/)||[])[1], r=ST.demo.find(x=>x.id===id); if(r) Object.assign(r, body); keep(); return null; }
+  }
+  return null;
+}
+let busy = false, lastErr = '';
+async function pull(){
+  if(!ST.sess && !DEMO) return;
+  try{
+    const from = (()=>{ const d=new Date(); d.setMonth(d.getMonth()-1, 1); return dstr(d); })();
+    const [bs, rows] = await Promise.all([
+      api('/rest/v1/budget_state?select=data,updated_at'),
+      api('/rest/v1/expenses?select=id,date,amount,memo,cat,pay,created_at,imported_at&deleted=is.false&date=gte.'+from+'&order=date.desc,created_at.desc&limit=400')]);
+    ST.state = bs && bs[0] ? bs[0].data : null; ST.stateAt = bs && bs[0] ? bs[0].updated_at : null;
+    const pend = new Set(ST.q.map(q=>q.id)); ST.rows = [...ST.q.map(q=>({...q, _p:1})), ...(rows||[]).filter(r=>!pend.has(r.id))];
+    lastErr = ''; keep(); render(); flush();
+  }catch(e){ lastErr = navigator.onLine===false ? '인터넷이 끊겨 있어요. 입력한 건 저장해 두었다가 연결되면 보내요.' : '서버에서 불러오지 못했어요: ' + (e.msg||e); render(); }
+}
+// 아직 못 보낸 입력을 차례로 보냄 (같은 건을 두 번 보내도 한 번만 들어가게 id를 미리 정함)
+async function flush(){
+  if(busy || !ST.q.length || (!ST.sess && !DEMO)) return; busy = true;
+  try{
+    while(ST.q.length){ const q = ST.q[0];
+      await api('/rest/v1/expenses', {method:'POST', body:{id:q.id, date:q.date, amount:q.amount, memo:q.memo, cat:q.cat, pay:q.pay}, headers:{Prefer:'resolution=ignore-duplicates,return=minimal'}});
+      ST.q.shift(); const r = ST.rows.find(x=>x.id===q.id); if(r) delete r._p; keep(); }
+    lastErr = ''; render();
+  }catch(e){ lastErr = '아직 서버에 못 보낸 입력이 ' + ST.q.length + '건 있어요. 연결되면 자동으로 보내요.'; render(); }
+  busy = false;
+}
+
+// ---------- 입력 한 줄 읽기 ("점심 12000", "10/3 주유 6만", "어제 커피 4500 현금") ----------
+const lKey = s => String(s||'').replace(/\s+/g,'').toLowerCase();
+function parse(txt){
+  let s = ' ' + txt.trim() + ' ', date = null, pay = null, m; const now = new Date();
+  if(m = s.match(/\s(\d{1,2})[\/.](\d{1,2})\s/)){ date = now.getFullYear() + '-' + pad(m[1]) + '-' + pad(m[2]); s = s.replace(m[0], ' '); }
+  else if(m = s.match(/\s(\d{1,2})일\s/)){ date = dstr(now).slice(0,8) + pad(m[1]); s = s.replace(m[0], ' '); }
+  else if(m = s.match(/\s(어제|그제|그저께)\s/)){ const d = new Date(); d.setDate(d.getDate() - (m[1]==='어제' ? 1 : 2)); date = dstr(d); s = s.replace(m[0], ' '); }
+  if(date && date > today()){ const d = new Date(date); d.setFullYear(d.getFullYear()-1); if(!isNaN(d)) date = dstr(d); }      // 12/30을 1월에 넣는 경우
+  if(m = s.match(/\s(카드|현금|이체)\s/)){ pay = m[1]; s = s.replace(m[0], ' '); }
+  const am = [...s.matchAll(/(\d[\d,]*(?:\.\d+)?)\s*(만|천)?\s*원?(?=\s)/g)]; if(!am.length) return null;
+  const a = am[am.length-1]; let amt = parseFloat(a[1].replace(/,/g,'')); if(a[2]==='만') amt *= 10000; else if(a[2]==='천') amt *= 1000; amt = Math.round(amt);
+  if(!amt) return null;
+  const memo = (s.slice(0, a.index) + ' ' + s.slice(a.index + a[0].length)).trim().replace(/\s+/g, ' ');
+  return {date, pay, amt, memo, cat: guess(memo)};
+}
+function guess(memo){
+  const S = ST.state || {}, lr = (S.learn || {})[lKey(memo)]; if(lr) return lr.split(':')[1];
+  const mine = (ST.learn || {})[lKey(memo)]; if(mine) return mine;
+  for(const [c, src] of (S.kw || [])){ try{ if(new RegExp(src, 'i').test(memo)) return c; }catch(e){} }
+  return null;
+}
+const cats = () => ((ST.state && ST.state.cats) || [{id:'unc', n:'미분류', e:'❔'}]);
+const catOf = id => cats().find(c=>c.id===id) || {id:'unc', n:'미분류', e:'❔'};
+
+// ---------- 화면 ----------
+let sel = null, edit = null;      // sel: 손으로 고른 카테고리, edit: 카테고리를 바꾸는 중인 내역
+function calc(){
+  const S = ST.state, t = today(), mk = t.slice(0,7), now = new Date();
+  const un = ST.rows.filter(r => !r.imported_at && r.date.startsWith(mk)), sum = a => a.reduce((s,r)=>s+r.amount, 0);
+  const days = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate(), remain = days - now.getDate() + 1;
+  const mine = sum(ST.rows.filter(r => r.date === t)), cur = S && S.month === mk;
+  if(!cur) return {cur:false, todayMine:mine, monthMine:sum(ST.rows.filter(r=>r.date.startsWith(mk)))};
+  const freeAvail = S.freeAvail - sum(un), todaySpent = (S.day===t ? S.todaySpent : 0) + sum(un.filter(r=>r.date===t));
+  const perDay = Math.floor((freeAvail + todaySpent) / remain), byCat = {}; un.forEach(r => byCat[r.cat||'unc'] = (byCat[r.cat||'unc']||0) + r.amount);
+  return {cur:true, perDay, todayLeft: freeAvail>0 ? Math.max(0, perDay - todaySpent) : 0, todaySpent, freeAvail, monthLeft: S.tot - S.used - sum(un), tot:S.tot, remain, byCat};
+}
+function render(){
+  const app = $('app');
+  if(!CFG.url && !DEMO){ app.innerHTML = '<h1>지출 입력</h1><div class="note err">설정 파일(config.js)이 없어요.</div>'; return; }
+  if(!ST.sess && !DEMO){
+    app.innerHTML = `<h1>지출 입력</h1><p class="s" style="margin:0 4px 16px;font-size:13px">내 자산관리 도구와 연결하는 화면이에요. 처음이면 가입을 누르세요.</p>
+      <div class="card login"><input class="inp" id="em" type="email" placeholder="이메일" autocomplete="username" value="${esc(ST.email||'')}">
+      <input class="inp" id="pw" type="password" placeholder="비밀번호 (8자 이상)" autocomplete="current-password">
+      <button class="btn" id="doLogin">로그인</button><button class="btn ghost" id="doJoin">처음이에요, 가입할게요</button>
+      <div class="hint" id="lmsg"></div></div>`;
+    const go = async join => { const email=$('em').value.trim(), password=$('pw').value; if(!email || password.length<8) return $('lmsg').textContent='이메일과 8자 이상 비밀번호를 넣어 주세요';
+      $('lmsg').textContent = '확인하는 중…'; ST.email = email; keep();
+      try{ const r = await raw(join ? '/auth/v1/signup' : '/auth/v1/token?grant_type=password', {method:'POST', body:{email, password}, auth:false});
+        if(r && r.access_token){ setSess(r); render(); pull(); } else $('lmsg').textContent = '가입 확인 메일을 보냈어요. 메일의 링크를 누른 뒤 여기서 로그인해 주세요.'; }
+      catch(e){ $('lmsg').textContent = /invalid login/i.test(e.msg) ? '이메일이나 비밀번호가 맞지 않아요.' : /not confirmed/i.test(e.msg) ? '메일함의 확인 링크를 먼저 눌러 주세요.' : /already registered/i.test(e.msg) ? '이미 가입된 이메일이에요. 로그인을 눌러 주세요.' : '안 됐어요: ' + e.msg; } };
+    $('doLogin').onclick = () => go(false); $('doJoin').onclick = () => go(true); return;
+  }
+  const C = calc(), t = today(), keepTxt = $('q') ? $('q').value : '', hadFocus = document.activeElement && document.activeElement.id === 'q';
+  const p = keepTxt ? parse(keepTxt) : null, g = sel || (p && p.cat) || null;
+  const top = C.cur
+    ? `<div class="card hl"><div class="lb">오늘 쓸 수 있는 돈</div><div class="v">${won(C.todayLeft)}</div><div class="s">${C.freeAvail>0 ? (C.todaySpent ? `오늘 ${won(C.todaySpent)} 썼어요 · ` : '') + `하루 한도 ${won(C.perDay)}` : '이번 달 자유 지출 예산을 다 썼어요'}</div></div>
+       <div class="card"><div class="lb">이번 달 남은 예산</div><div class="v" style="${C.monthLeft<0?'color:var(--warn)':''}">${won(C.monthLeft)}</div><div class="s">총 예산 ${won(C.tot)} · 남은 ${C.remain}일</div></div>`
+    : `<div class="card hl"><div class="lb">오늘 입력한 지출</div><div class="v">${won(C.todayMine)}</div><div class="s">예산은 아직 못 받았어요</div></div>
+       <div class="card"><div class="lb">이번 달 입력한 지출</div><div class="v">${won(C.monthMine)}</div><div class="s">핸드폰으로 넣은 것만</div></div>`;
+  const chip = (c, cls) => `<button class="chip ${cls}" data-cat="${c.id}">${c.e||''} ${esc(c.n)}</button>`;
+  const groups = {}; ST.rows.forEach(r => (groups[r.date] ||= []).push(r));
+  const dl = d => d===t ? '오늘' : d===dstr(new Date(Date.now()-864e5)) ? '어제' : (+d.slice(5,7)) + '월 ' + (+d.slice(8)) + '일';
+  const list = Object.keys(groups).sort().reverse().slice(0, 21).map(d => `<div class="day"><span>${dl(d)}</span><span>${won(groups[d].reduce((s,r)=>s+r.amount,0))}</span></div>` +
+    groups[d].map(r => { const c = catOf(r.cat), lock = !!r.imported_at;
+      return `<div class="it"><div class="e">${c.e||'❔'}</div><div class="m"><b class="${r._p?'pend':''}">${esc(r.memo) || esc(c.n)}</b><span ${lock?'':`data-ed="${r.id}"`} style="${lock?'':'text-decoration:underline dotted'}">${esc(c.n)} · ${esc(r.pay||'')}${r._p?' · 보내는 중':lock?' · PC로 옮김':''}</span>
+        ${edit===r.id ? `<div class="chips">${cats().map(x=>`<button class="chip ${x.id===r.cat?'on':''}" data-setcat="${r.id}|${x.id}">${x.e||''} ${esc(x.n)}</button>`).join('')}</div>` : ''}</div>
+        <div class="a">-${Math.abs(r.amount).toLocaleString('ko-KR')}</div>${lock ? '<span class="x" style="font-size:13px">🔒</span>' : `<button class="x" data-del="${r.id}" aria-label="지우기">×</button>`}</div>`; }).join('')).join('');
+  const catRows = C.cur ? (ST.state.cats||[]).filter(c=>c.b || c.s || C.byCat[c.id]).map(c => { const used=c.s+(C.byCat[c.id]||0), left=c.b-used, pct=c.b?Math.min(100,used/c.b*100):100;
+      return `<div class="cat"><div class="t"><span>${c.e||''} ${esc(c.n)}</span><span style="${left<0?'color:var(--warn)':''}">${c.b ? won(left)+' 남음' : won(used)+' 씀'}</span></div><div class="bar"><i style="width:${pct}%;${left<0?'background:var(--warn)':''}"></i></div></div>`; }).join('') : '';
+  app.innerHTML = `
+    ${lastErr ? `<div class="note ${/못 했|못했/.test(lastErr)?'err':''}">${esc(lastErr)}</div>` : ''}
+    ${!C.cur ? '<div class="note">PC에서 자산관리 도구를 한 번 열면 이번 달 예산이 올라와서 "오늘 쓸 수 있는 돈"이 보여요. 입력은 지금도 할 수 있어요.</div>' : ''}
+    <div class="top">${top}</div>
+    <div class="card"><div class="row"><input class="inp" id="q" inputmode="text" enterkeyhint="done" autocomplete="off" placeholder="점심 12000" value="${esc(keepTxt)}"><button class="btn" id="add">저장</button></div>
+      <div class="hint" id="hint">${p ? `${p.date ? dl(p.date)+' · ' : ''}${esc(p.memo)||'메모 없음'} · <b>${won(p.amt)}</b>` : '예: 점심 12000 · 어제 커피 4500 · 10/3 주유 6만'}</div>
+      <div class="chips" id="catChips">${cats().map(c=>chip(c, sel===c.id ? 'on' : (!sel && g===c.id ? 'guess' : ''))).join('')}</div>
+      <div class="chips" style="padding-top:6px">${['카드','현금','이체'].map(x=>`<button class="chip ${((p&&p.pay)||ST.pay)===x?'on':''}" data-pay="${x}">${x}</button>`).join('')}</div></div>
+    <div class="card" style="padding-top:6px">${list || '<div class="s" style="padding:18px 0;text-align:center;font-size:13px">아직 입력한 지출이 없어요</div>'}</div>
+    ${catRows ? `<div class="card"><details ${ST.open?'open':''} id="catD"><summary><span>카테고리별 남은 예산</span><span class="s">눌러서 펴기</span></summary><div style="margin-top:8px">${catRows}</div></details></div>` : ''}
+    <div class="foot"><span>${DEMO ? '시험 화면' : esc(ST.sess.email||'')}${ST.stateAt ? ' · 예산 기준 ' + new Date(ST.stateAt).toLocaleDateString('ko-KR',{month:'numeric',day:'numeric'}) : ''}</span><span><button id="reload">새로 고침</button> ${DEMO?'':'<button id="out">로그아웃</button>'}</span></div>`;
+  const q = $('q'); if(hadFocus){ q.focus(); q.setSelectionRange(q.value.length, q.value.length); }
+  q.oninput = () => { const pp = parse(q.value), gg = sel || (pp && pp.cat);
+    $('hint').innerHTML = pp ? `${pp.date ? dl(pp.date)+' · ' : ''}${esc(pp.memo)||'메모 없음'} · <b>${won(pp.amt)}</b>` : '예: 점심 12000 · 어제 커피 4500 · 10/3 주유 6만';
+    document.querySelectorAll('#catChips .chip').forEach(b => { b.classList.toggle('on', sel===b.dataset.cat); b.classList.toggle('guess', !sel && gg===b.dataset.cat); }); };
+  q.onkeydown = e => { if(e.key==='Enter') add(); };
+  $('add').onclick = add;
+  $('reload').onclick = () => { toast('불러오는 중…'); pull(); };
+  if($('out')) $('out').onclick = () => { if(ST.q.length && !confirm('아직 못 보낸 입력이 있어요. 그래도 로그아웃할까요?')) return; ST = {email:ST.sess.email, q:[], rows:[], pay:ST.pay}; keep(); render(); };
+  if($('catD')) $('catD').ontoggle = e => { ST.open = e.target.open; keep(); };
+}
+function add(){
+  const q = $('q'), p = parse(q.value); if(!p) return toast('금액을 찾지 못했어요. 예: 점심 12000');
+  const cat = sel || p.cat || 'unc', row = {id:uuid(), date:p.date || today(), amount:p.amt, memo:p.memo, cat, pay:p.pay || ST.pay};
+  if(p.memo && cat!=='unc') (ST.learn ||= {})[lKey(p.memo)] = cat;                // 다음부터 같은 메모는 같은 카테고리로
+  ST.q.push(row); ST.rows.unshift({...row, _p:1}); sel = null; q.value = ''; keep(); render(); $('q').focus();
+  toast(`${catOf(cat).e||''} ${catOf(cat).n} ${won(row.amount)} 저장했어요`); flush();
+}
+document.addEventListener('click', async e => {
+  const c = e.target.closest('[data-cat]'), py = e.target.closest('[data-pay]'), del = e.target.closest('[data-del]'), ed = e.target.closest('[data-ed]'), sc = e.target.closest('[data-setcat]');
+  if(c){ sel = sel===c.dataset.cat ? null : c.dataset.cat; render(); $('q').focus(); }
+  else if(py){ ST.pay = py.dataset.pay; keep(); render(); }
+  else if(ed){ edit = edit===ed.dataset.ed ? null : ed.dataset.ed; render(); }
+  else if(sc){ const [id, cat] = sc.dataset.setcat.split('|'), r = ST.rows.find(x=>x.id===id), qi = ST.q.find(x=>x.id===id); if(!r) return;
+    r.cat = cat; if(qi) qi.cat = cat; if(r.memo) (ST.learn ||= {})[lKey(r.memo)] = cat; edit = null; keep(); render();
+    if(!qi){ try{ await api('/rest/v1/expenses?id=eq.'+id+'&imported_at=is.null', {method:'PATCH', body:{cat}}); }catch(er){ toast('바꾸지 못했어요. 다시 시도해 주세요'); pull(); } } }
+  else if(del){ const id = del.dataset.del, r = ST.rows.find(x=>x.id===id); if(!r || !confirm(`"${r.memo || catOf(r.cat).n} ${won(r.amount)}"을 지울까요?`)) return;
+    const qi = ST.q.findIndex(x=>x.id===id); ST.rows = ST.rows.filter(x=>x.id!==id); if(qi>=0) ST.q.splice(qi,1); keep(); render();
+    if(qi<0){ try{ await api('/rest/v1/expenses?id=eq.'+id+'&imported_at=is.null', {method:'PATCH', body:{deleted:true}}); }catch(er){ toast('지우지 못했어요. 다시 시도해 주세요'); pull(); } } }
+});
+window.addEventListener('online', () => { flush(); });
+document.addEventListener('visibilitychange', () => { if(!document.hidden) pull(); });
+if('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(()=>{});
+render(); pull();
+</script>
+</body>
+</html>
